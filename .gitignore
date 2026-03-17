@@ -1,0 +1,24 @@
+# virtual environment
+.venv/
+
+# runtime data — generated per session, no need to commit
+sessions/
+uploads/
+cached_images/
+processed/
+
+# personal letterboxd/pipeline artifacts
+matched_films.json
+force_graph.json
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+
+# mac
+.DS_Store
+
+# editor
+.vscode/
+.idea/
