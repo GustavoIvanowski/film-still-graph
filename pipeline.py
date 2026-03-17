@@ -6,7 +6,6 @@ import re
 import json
 import os
 import random
-import shutil
 from urllib.parse import quote
 from PIL import Image
 from io import BytesIO
@@ -14,13 +13,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from skimage import color
 from sklearn.cluster import KMeans
 import numpy as np
+import time
 
 # constants
 
 COMPRESSED_QUALITY = 60
-MAX_FILMS = 150
+MAX_FILMS = 300
 MAX_WORKERS = 3  # adjust based on your connection
-SAMPLE = 2  # number of images to sample per film
+SAMPLE = 1  # number of images to sample per film
 NEIGHBORS = 5  # number of nearest neighbors for force graph
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
@@ -79,6 +79,7 @@ def match_films(watched, filmgrab_index):
     return matched
 
 def get_image_urls(film_url):
+    time.sleep(random.uniform(0.5, 1.5))  # random delay
     r = requests.get(film_url, headers=HEADERS)
     soup = BeautifulSoup(r.text, "html.parser")
     links = soup.select("a.bwg-a")
@@ -97,8 +98,13 @@ def cache_film(normalized, info, cache_dir):
     for i, url in enumerate(image_urls):
         try:
             encoded = quote(url, safe=":/?=&")
-            img_data = requests.get(encoded, headers=HEADERS, timeout=15).content
-            img = Image.open(BytesIO(img_data)).convert("RGB")
+            response = requests.get(encoded, headers=HEADERS, timeout=15)
+            content_type = response.headers.get("Content-Type", "")
+            if "image" not in content_type:
+                print(f"Non-image response for {normalized} image {i+1}: {content_type} - {response.status_code}")
+                print(response.text[:200])  # print first 200 chars to see what it returned
+                continue
+            img = Image.open(BytesIO(response.content)).convert("RGB")
             path = os.path.join(film_dir, f"{i+1}.jpg")
             img.save(path, "JPEG", quality=COMPRESSED_QUALITY, optimize=True)
             rel = os.path.relpath(os.path.abspath(path), os.path.abspath(cache_dir)).replace(os.sep, "/")
