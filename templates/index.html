@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Film Color Graph</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap');
+ 
+  :root {
+    --bg:      #080808;
+    --surface: #111111;
+    --border:  rgba(255,255,255,0.08);
+    --text:    rgba(255,255,255,0.75);
+    --muted:   rgba(255,255,255,0.25);
+    --accent:  rgba(255,255,255,0.9);
+  }
+ 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+ 
+  .container {
+    width: 100%;
+    max-width: 520px;
+  }
+ 
+  .title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 42px;
+    color: var(--accent);
+    line-height: 1.1;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+ 
+  .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 52px;
+  }
+ 
+  .instructions {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 2;
+    margin-bottom: 32px;
+    letter-spacing: 0.04em;
+  }
+ 
+  .instructions a {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+ 
+  .drop-zone {
+    border: 1px solid var(--border);
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 20px;
+    position: relative;
+  }
+ 
+  .drop-zone:hover,
+  .drop-zone.dragover {
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.02);
+  }
+ 
+  .drop-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+ 
+  .drop-icon {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+ 
+  .drop-filename {
+    font-size: 12px;
+    color: var(--accent);
+    min-height: 18px;
+    font-style: italic;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+  }
+ 
+  button {
+    width: 100%;
+    padding: 14px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+ 
+  button:hover:not(:disabled) {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.4);
+  }
+ 
+  button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+ 
+  /* progress */
+ 
+  #progress-section {
+    display: none;
+    margin-top: 36px;
+  }
+ 
+  .progress-message {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    min-height: 16px;
+  }
+ 
+  .progress-track {
+    height: 1px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+ 
+  .progress-fill {
+    height: 100%;
+    background: rgba(255,255,255,0.6);
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+ 
+  .progress-pct {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 8px;
+    letter-spacing: 0.06em;
+  }
+ 
+  .error-msg {
+    margin-top: 20px;
+    font-size: 11px;
+    color: rgba(255, 100, 100, 0.7);
+    letter-spacing: 0.04em;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+ 
+<div class="container">
+  <h1 class="title">film<br>color<br>graph</h1>
+  <p class="subtitle">letterboxd · film-grab · d3</p>
+ 
+  <p class="instructions">
+    export your letterboxd data at<br>
+    <a href="https://letterboxd.com/settings/data/" target="_blank">letterboxd.com/settings/data</a><br>
+    then upload the zip below.
+  </p>
+ 
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept=".zip">
+    <p class="drop-icon">drop zip here or click to browse</p>
+    <p class="drop-filename" id="filename">—</p>
+  </div>
+ 
+  <button id="submit-btn" disabled>generate graph</button>
+ 
+  <div id="progress-section">
+    <p class="progress-message" id="progress-message">starting...</p>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <p class="progress-pct" id="progress-pct">0%</p>
+    <p class="error-msg" id="error-msg"></p>
+  </div>
+</div>
+ 
+<script>
+  const fileInput   = document.getElementById("file-input");
+  const dropZone    = document.getElementById("drop-zone");
+  const filenameEl  = document.getElementById("filename");
+  const submitBtn   = document.getElementById("submit-btn");
+  const progressSec = document.getElementById("progress-section");
+  const progressMsg = document.getElementById("progress-message");
+  const progressFill= document.getElementById("progress-fill");
+  const progressPct = document.getElementById("progress-pct");
+  const errorMsg    = document.getElementById("error-msg");
+ 
+  // drag and drop styling
+  dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("dragover");
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+  });
+ 
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+ 
+  function setFile(file) {
+    filenameEl.textContent = file.name;
+    submitBtn.disabled = !file.name.endsWith(".zip");
+    fileInput._file = file;
+  }
+ 
+  submitBtn.addEventListener("click", async () => {
+    const file = fileInput.files[0] || fileInput._file;
+    if (!file) return;
+ 
+    submitBtn.disabled = true;
+    progressSec.style.display = "block";
+    errorMsg.textContent = "";
+ 
+    // upload
+    const formData = new FormData();
+    formData.append("zip", file);
+ 
+    const res  = await fetch("/upload", { method: "POST", body: formData });
+    const data = await res.json();
+ 
+    if (data.error) {
+      errorMsg.textContent = data.error;
+      submitBtn.disabled = false;
+      return;
+    }
+ 
+    // stream progress via SSE
+    const evtSource = new EventSource(`/progress/${data.session_id}`);
+ 
+    evtSource.onmessage = e => {
+      const state = JSON.parse(e.data);
+ 
+      progressMsg.textContent  = state.message;
+      progressFill.style.width = state.progress + "%";
+      progressPct.textContent  = state.progress + "%";
+ 
+      if (state.error) {
+        errorMsg.textContent = "error: " + state.error;
+        evtSource.close();
+        submitBtn.disabled = false;
+      }
+ 
+      if (state.done) {
+        evtSource.close();
+        window.location.href = `/graph/${data.session_id}`;
+      }
+    };
+ 
+    evtSource.onerror = () => {
+      errorMsg.textContent = "connection lost — please try again";
+      evtSource.close();
+      submitBtn.disabled = false;
+    };
+  });
+</script>
+</body>
+</html>
