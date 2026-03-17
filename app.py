@@ -111,7 +111,8 @@ def progress(session_id):
 
             if state["done"] or state["error"]:
                 break
-
+            
+            yield ": heartbeat\n\n"
             time.sleep(0.5)
 
     return Response(

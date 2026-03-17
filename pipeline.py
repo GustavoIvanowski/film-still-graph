@@ -18,8 +18,8 @@ import numpy as np
 # constants
 
 COMPRESSED_QUALITY = 60
-MAX_FILMS = 300
-MAX_WORKERS = 8  # adjust based on your connection
+MAX_FILMS = 150
+MAX_WORKERS = 3  # adjust based on your connection
 SAMPLE = 2  # number of images to sample per film
 NEIGHBORS = 5  # number of nearest neighbors for force graph
 HEADERS = {
@@ -88,16 +88,23 @@ def get_image_urls(film_url):
 def cache_film(normalized, info, cache_dir):
     film_dir = os.path.join(cache_dir, normalized)
     os.makedirs(film_dir, exist_ok=True)
-    image_urls = get_image_urls(info["url"])
+    try:
+        image_urls = get_image_urls(info["url"])
+    except Exception as e:
+        print(f"Failed to get image URLs for {normalized}: {e}")
+        return []
     filepaths = []
     for i, url in enumerate(image_urls):
-        encoded = quote(url, safe=":/?=&")
-        img_data = requests.get(encoded, headers=HEADERS).content
-        img = Image.open(BytesIO(img_data)).convert("RGB")
-        path = os.path.join(film_dir, f"{i+1}.jpg")
-        img.save(path, "JPEG", quality=COMPRESSED_QUALITY, optimize=True)
-        rel = os.path.relpath(path, cache_dir).replace(os.sep, "/")
-        filepaths.append(rel)
+        try:
+            encoded = quote(url, safe=":/?=&")
+            img_data = requests.get(encoded, headers=HEADERS, timeout=15).content
+            img = Image.open(BytesIO(img_data)).convert("RGB")
+            path = os.path.join(film_dir, f"{i+1}.jpg")
+            img.save(path, "JPEG", quality=COMPRESSED_QUALITY, optimize=True)
+            rel = os.path.relpath(os.path.abspath(path), os.path.abspath(cache_dir)).replace(os.sep, "/")
+            filepaths.append(rel)
+        except Exception as e:
+            print(f"Failed to download image {i+1} for {normalized}: {e}")
     return filepaths
 
 # build force graph JSON
@@ -173,8 +180,14 @@ def run_pipeline(zip_path, session_dir, progress):
 
     def process(item):
         normalized, info = item
-        info["filepaths"] = cache_film(normalized, info, cache_dir)
-        return normalized, info
+        try:
+            info["filepaths"] = cache_film(normalized, info, cache_dir)
+            return normalized, info
+        except Exception as e:
+            import traceback
+            print(f"Film failed {normalized}: {e}")
+            traceback.print_exc()
+            return normalized, info 
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {executor.submit(process, item): item for item in sampled.items()}
@@ -194,3 +207,4 @@ def run_pipeline(zip_path, session_dir, progress):
 
     progress(100, "Done!")
     return graph_path
+
